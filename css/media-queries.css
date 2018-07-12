@@ -1,0 +1,35 @@
+@media (max-width: 800px) {
+    #restaurants-list li {
+        width: calc(50% - 20px);
+    }
+}
+
+@media (max-width: 550px) {
+    #restaurants-list li {
+        width: calc(100% - 20px);
+    }
+}
+
+@media (max-width: 665px) {
+    .inside header {
+        position: relative;
+    }
+
+    .inside #map-container {
+        position: relative;
+        height: 300px;
+        top: auto;
+    }
+
+    .inside #restaurant-container {
+        padding: 30px 40px;
+    }
+
+    .inside section, .inside aside {
+        width: 100% !important;
+    }
+
+    .inside #breadcrumb, .inside #footer {
+        width: 100%;
+    }
+}
