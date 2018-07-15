@@ -37,6 +37,14 @@ a:hover, a:focus {
 	color: #3397DB;
 	text-decoration: none;
 }
+a.hidden {
+	position: absolute;
+	left: -999px;
+}
+a.hidden:focus {
+	left: 5px;
+	z-index: 1001;
+}
 a img{
 	border: none 0px #fff;
 }
@@ -74,8 +82,8 @@ article, aside, canvas, details, figcaption, figure, footer, header, hgroup, men
 /* ====================== Navigation ====================== */
 nav {
 	display:flex;
-    align-items: center;
-    justify-content: center;
+	align-items: center;
+	justify-content: center;
 	width: 100%;
 	height: 80px;
 	background-color: #252831;
@@ -188,7 +196,7 @@ nav h1 a {
 	padding: 25px 30px;
 }
 
-#restaurants-list li h1 {
+#restaurants-list li h2 {
 	color: var(--primary-color);
 	font-family: Arial,sans-serif;
 	font-size: 1rem;

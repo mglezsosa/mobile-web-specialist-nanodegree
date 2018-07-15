@@ -38,12 +38,12 @@ self.addEventListener('fetch', function(event) {
     let requestUrl = new URL(event.request.url);
     if (requestUrl.origin === location.origin) {
         if (requestUrl.pathname === '/') {
-            event.respondWith(caches.match('/index.html'));
+            return event.respondWith(caches.match('/index.html'));
         } else if (requestUrl.pathname.includes('restaurant.html')) {
-            event.respondWith(caches.match('/restaurant.html'));
+            return event.respondWith(caches.match('/restaurant.html'));
         }
     }
-    event.respondWith(
+    return event.respondWith(
         caches.match(event.request).then(function(response) {
             return response || fetch(event.request).then((response) => {
                 // Prevent caching map images
