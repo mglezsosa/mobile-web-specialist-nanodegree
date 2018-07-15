@@ -1,3 +1,19 @@
+/**
+ * Toaster button callback after a click.
+ * @callback toasterButtonCallback
+ * @param {HTMLElement} toasterElement - Parent toaster element.
+ * @param {MouseEvent} event - Click event object.
+ */
+
+/**
+ * Shows a toaster with a text and two buttons.
+ * @param {Object} options
+ * @param {string} options.text - Text content of the toaster.
+ * @param {string} options.firstButtonText - Text content of the first button.
+ * @param {string} options.secondButtonText - Text content of the second button.
+ * @param {toasterButtonCallback} options.firstButtonCallback - Callback on click for the first button.
+ * @param {toasterButtonCallback} options.secondButtonCallback - Callback on click for the second button.
+ */
 const showToaster = (options) => {
     let updateToaster = document.createElement('div');
     updateToaster.classList.add('snackbar-container', 'snackbar-pos', 'bottom-left');
@@ -24,13 +40,17 @@ const showToaster = (options) => {
     document.body.append(updateToaster);
 
     updateToasterUpdButton.addEventListener('click', (evt) => {
-        options.firstButtonCallback(updateToaster);
+        options.firstButtonCallback(updateToaster, evt);
     });
     updateToasterIgnButton.addEventListener('click', (evt) => {
-        options.secondButtonCallback(updateToaster);
+        options.secondButtonCallback(updateToaster, evt);
     });
 };
 
+/**
+ * Shows a notification indicating that a new update is available.
+ * @param worker - Service worker reference.
+ */
 const updateReady = (worker) => {
     showToaster({
         text: 'A new update is available.',
@@ -46,6 +66,10 @@ const updateReady = (worker) => {
     });
 };
 
+/**
+ * Tracks if the service worker is installed successfully and calls updateReady.
+ * @param worker - Service worker reference.
+ */
 const trackInstalling = (worker) => {
     worker.addEventListener('statechange', function() {
         if (worker.state == 'installed') {
@@ -54,6 +78,9 @@ const trackInstalling = (worker) => {
     });
 };
 
+/**
+ * Service worker registration.
+ */
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
         navigator.serviceWorker.register('/sw.js').then(function(reg) {
