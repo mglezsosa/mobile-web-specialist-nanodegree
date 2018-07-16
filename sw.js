@@ -6,7 +6,6 @@ self.addEventListener('install', function(event) {
             return cache.addAll([
                 'index.html',
                 'restaurant.html',
-                'data/restaurants.json',
                 'js/main.js',
                 'js/restaurant_info.js',
                 'js/dbhelper.js',
@@ -46,8 +45,9 @@ self.addEventListener('fetch', function(event) {
     return event.respondWith(
         caches.match(event.request).then(function(response) {
             return response || fetch(event.request).then((response) => {
-                // Prevent caching map images
-                if (requestUrl.origin === 'https://api.tiles.mapbox.com') return response;
+                // Prevent caching map images and JSON data from our server
+                if (requestUrl.origin === 'https://api.tiles.mapbox.com' ||
+                    requestUrl.origin === 'http://localhost:1337') return response;
                 return caches.open(CACHE_NAME).then((cache) => {
                     cache.put(event.request, response.clone());
                     return response;
