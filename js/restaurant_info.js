@@ -4,8 +4,9 @@ var newMap;
 /**
 * Initialize map as soon as the page is loaded.
 */
-document.addEventListener('DOMContentLoaded', (event) => {
+document.addEventListener('DOMContentLoaded', event => {
     initMap();
+    if (!navigator.onLine) showOfflineState();
 });
 
 /**
@@ -38,7 +39,7 @@ initMap = () => {
 /**
 * Get current restaurant from page URL.
 */
-fetchRestaurantFromURL = (callback) => {
+fetchRestaurantFromURL = callback => {
     if (self.restaurant) { // restaurant already fetched!
         callback(null, self.restaurant)
         return;
@@ -89,8 +90,17 @@ fillRestaurantHTML = (restaurant = self.restaurant) => {
     if (restaurant.operating_hours) {
         fillRestaurantHoursHTML();
     }
-    // fill reviews
-    fillReviewsHTML();
+
+    DBHelper.fetchRestaurantReviews(restaurant.id, (reviews) => {
+        if (!reviews) return;
+        fillReviewsHTML(reviews);
+    });
+
+    const favForm = document.getElementById('fav--form');
+    const toggleFav = document.getElementById('toggle--fav');
+    toggleFav.checked = restaurant.is_favorite;
+    favForm.action = `http://localhost:1337/restaurants/${restaurant.id}/`;
+    document.getElementById("restaurant_id").value = restaurant.id;
 }
 
 /**
@@ -116,11 +126,8 @@ fillRestaurantHoursHTML = (operatingHours = self.restaurant.operating_hours) => 
 /**
 * Create all reviews HTML and add them to the webpage.
 */
-fillReviewsHTML = (reviews = self.restaurant.reviews) => {
+fillReviewsHTML = reviews => {
     const container = document.getElementById('reviews-container');
-    const title = document.createElement('h3');
-    title.innerHTML = 'Reviews';
-    container.appendChild(title);
 
     if (!reviews) {
         const noReviews = document.createElement('p');
@@ -138,14 +145,14 @@ fillReviewsHTML = (reviews = self.restaurant.reviews) => {
 /**
 * Create review HTML and add it to the webpage.
 */
-createReviewHTML = (review) => {
+createReviewHTML = review => {
     const li = document.createElement('li');
     const name = document.createElement('p');
     name.innerHTML = review.name;
     li.appendChild(name);
 
     const date = document.createElement('p');
-    date.innerHTML = review.date;
+    date.innerHTML = timeConverter(review.updatedAt);
     li.appendChild(date);
 
     const rating = document.createElement('p');
@@ -184,3 +191,70 @@ getParameterByName = (name, url) => {
     return '';
     return decodeURIComponent(results[2].replace(/\+/g, ' '));
 }
+
+/**
+* Unix timestamp to date format
+*/
+const timeConverter = UNIX_timestamp => {
+    var a = new Date(UNIX_timestamp);
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var year = a.getFullYear();
+    var month = months[a.getMonth()];
+    var date = a.getDate();
+    var hour = a.getHours();
+    var min = a.getMinutes();
+    var sec = a.getSeconds();
+    var time = date + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec ;
+    return time;
+}
+
+/**
+ * Convert a FormData object to a javascript object.
+ * @param  {[FormData]} formData FormData object to be converted.
+ * @return {[Object]}
+ */
+const formDataToJSON = formData => {
+    var convertedJSON= {};
+    for (const [key, value]  of formData.entries()) {
+        convertedJSON[key] = value;
+    }
+    return convertedJSON;
+};
+
+/**
+ * Send a request when checkbox is toggled.
+ * @param  {[Event]} evt
+ */
+document.getElementById('fav--form').onchange = function (evt) {
+    const data = formDataToJSON(new FormData(this));
+    data.is_favourite = data.is_favourite == undefined ? false : true;
+    DBHelper.setFav(self.restaurant.id, data.is_favourite);
+    fetch(this.action + '?is_favorite=' + data.is_favourite, {
+        method: 'PUT'
+    });
+};
+
+/**
+ * Send the new review via AJAX.
+ * @param  {[Event]} evt
+ */
+document.getElementById('review--form').onsubmit = function (evt) {
+    evt.preventDefault();
+    const data = formDataToJSON(new FormData(this));
+    data.restaurant_id = Number(data.restaurant_id);
+    data.updatedAt = data.updatedAt || new Date();
+    fetch(this.action, {
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(data),
+        method: 'POST'
+    }).then(response => {
+        // If it's a response from the sw
+        if (response.status === 202) {
+            return data;
+        }
+        return response.json();
+    }).then(review => {
+        const list = document.getElementById('reviews-list');
+        list.insertBefore(createReviewHTML(review), list.firstChild);
+    });
+};

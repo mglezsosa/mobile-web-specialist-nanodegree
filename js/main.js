@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
     initMap();
     fetchNeighborhoods();
     fetchCuisines();
+    if (!navigator.onLine) showOfflineState();
 });
 
 /**

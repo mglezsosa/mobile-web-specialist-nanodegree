@@ -12,6 +12,11 @@ class DBHelper {
         return `http://localhost:${port}/restaurants`;
     }
 
+    static REVIEWS_BY_ID_URL(id) {
+        const port = 1337 // Change this to your server port
+        return `http://localhost:${port}/reviews/?restaurant_id=${id}`;
+    }
+
     static get _dbPromise() {
         // If the browser doesn't support service worker,
         // we don't care about having a database
@@ -20,9 +25,16 @@ class DBHelper {
         }
 
         return idb.open('restaurants-data', 1, function(upgradeDb) {
-            var store = upgradeDb.createObjectStore('restaurants-data', {
+            upgradeDb.createObjectStore('restaurants-data', {
                 keyPath: 'id'
             });
+            upgradeDb.createObjectStore('restaurant-reviews', {
+                keyPath: 'id'
+            }).createIndex('by-restaurant', 'restaurant_id', { unique:false });
+            upgradeDb.createObjectStore('enqueued-requests', {
+                keyPath: 'id',
+                autoIncrement: true
+            }).createIndex('by-restaurant', 'body.restaurant_id', { unique: false });
         });
     }
 
@@ -49,11 +61,52 @@ class DBHelper {
             }).then(restaurants => {
                 callback(null, restaurants);
                 if (numberOfRest === 0) {
+                    let tx = db.transaction('restaurants-data', 'readwrite');
                     restaurants.forEach(function(message) {
-                        db.transaction('restaurants-data', 'readwrite')
-                        .objectStore('restaurants-data').put(message);
+                        tx.objectStore('restaurants-data').put(message);
                     });
                 }
+            });
+        });
+    }
+
+    static fetchRestaurantReviews(id, callback) {
+        this._dbPromise.then(function(db) {
+            if (!db) return;
+
+            let tx = db.transaction('restaurant-reviews', 'readwrite');
+            let index = tx.objectStore('restaurant-reviews').index('by-restaurant');
+
+            let gl_reviews, gl_enq_reviews;
+
+            // Stored reviews
+            index.getAll(id).then(reviews => {
+                gl_reviews = reviews;
+                let tx = db.transaction('enqueued-requests', 'readwrite');
+                let index = tx.objectStore('enqueued-requests').index('by-restaurant');
+                return index.getAll(id).then(enq_req => {
+
+                    // Enqueued reviews
+                    gl_enq_reviews = enq_req.filter(function(req) {
+                        return req.url === 'http://localhost:1337/reviews/'
+                    }).map(rev => rev.body);
+                    callback([...gl_reviews, ...gl_enq_reviews]);
+                    // Try to update
+                    return fetch(DBHelper.REVIEWS_BY_ID_URL(id))
+                    .then(response => response.json())
+                    .catch(err => console.log(err));
+                });
+            })
+            .then(fetched_reviews => {
+                if (!fetched_reviews) return;
+                const new_reviews = fetched_reviews.filter(rev => {
+                    return ![...gl_reviews, ...gl_enq_reviews].find(el => el.id == rev.id);
+                });
+                callback(new_reviews);
+                let tx = db.transaction('restaurant-reviews', 'readwrite');
+                fetched_reviews.forEach(function(rev) {
+                    tx.objectStore('restaurant-reviews').put(rev);
+                });
             });
         });
     }
@@ -185,11 +238,26 @@ class DBHelper {
     static mapMarkerForRestaurant(restaurant, map) {
         // https://leafletjs.com/reference-1.3.0.html#marker
         const marker = new L.marker([restaurant.latlng.lat, restaurant.latlng.lng],
-            {title: restaurant.name,
+            {
+                title: restaurant.name,
                 alt: restaurant.name,
                 url: DBHelper.urlForRestaurant(restaurant)
-            })
-            marker.addTo(newMap);
-            return marker;
-        }
+            });
+        marker.addTo(newMap);
+        return marker;
     }
+
+    static setFav(id, fav) {
+        this._dbPromise.then(function(db) {
+            if (!db) return;
+
+            let tx = db.transaction('restaurants-data', 'readwrite');
+            let store = tx.objectStore('restaurants-data');
+
+            store.get(id).then((rest) => {
+                rest.is_favorite = fav;
+                store.put(rest);
+            });
+        });
+    }
+}
